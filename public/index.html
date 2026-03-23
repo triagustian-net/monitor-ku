@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Monitor Ku</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap');
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#080e1a;color:#e2e8f0;font-family:'Inter',sans-serif;padding:24px;min-height:100vh}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    h1{font-size:1.3rem;font-weight:700;color:#f1f5f9;display:flex;align-items:center;gap:10px}
+    #status-ws{font-size:.72rem;padding:3px 10px;border-radius:999px;background:#1e293b;color:#64748b;font-family:'JetBrains Mono',monospace}
+    #status-ws.connected{background:#052e16;color:#4ade80}
+    #status-ws.disconnected{background:#450a0a;color:#f87171}
+    #last-update{font-size:.75rem;color:#475569;margin-bottom:20px;font-family:'JetBrains Mono',monospace}
+    .btn-logout{background:transparent;border:1px solid #1e293b;color:#64748b;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:.8rem}
+    .btn-logout:hover{border-color:#ef4444;color:#f87171}
+    .nav{display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap}
+    .nav-btn{background:#0d1626;border:1px solid #1e293b;color:#64748b;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.82rem;font-weight:500;transition:all .2s}
+    .nav-btn.active{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+    .nav-btn:hover:not(.active){border-color:#334155;color:#94a3b8}
+    .page{display:none}.page.active{display:block}
+    .form-box{background:#0d1626;border:1px solid #1e293b;border-radius:14px;padding:18px;margin-bottom:24px}
+    .form-title{font-size:.78rem;font-weight:600;color:#475569;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
+    .form-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+    .fg{display:flex;flex-direction:column;gap:4px}
+    .fg label{font-size:.7rem;color:#475569;font-weight:500;letter-spacing:.04em}
+    .fg input,.fg select,.fg textarea{background:#080e1a;border:1px solid #1e293b;color:#e2e8f0;padding:8px 12px;border-radius:8px;font-size:.83rem;outline:none;font-family:'Inter',sans-serif;transition:border .2s}
+    .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:#3b82f6}
+    .fg select option{background:#0d1626}
+    .fg textarea{resize:vertical;min-height:80px}
+    .btn-add{background:#1d4ed8;color:#fff;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-size:.83rem;font-weight:600;white-space:nowrap;height:36px}
+    .btn-add:hover{background:#2563eb}
+    .form-error{font-size:.78rem;color:#f87171;margin-top:8px;display:none}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+    .card{background:#0d1626;border:1px solid #1e293b;border-radius:14px;padding:18px;position:relative;transition:border-color .3s;border-left:3px solid #1e293b}
+    .card.up{border-left-color:#22c55e}.card.down{border-left-color:#ef4444}.card.checking{border-left-color:#3b82f6}
+    .card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+    .card-name{font-weight:700;font-size:.95rem;color:#f1f5f9}
+    .badges{display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .badge-type{font-size:.62rem;padding:2px 7px;border-radius:5px;font-weight:700;letter-spacing:.06em;font-family:'JetBrains Mono',monospace}
+    .type-http{background:#0c2a4a;color:#60a5fa}.type-tcp{background:#1e1b4b;color:#a5b4fc}
+    .type-ping{background:#052e16;color:#4ade80}.type-dns{background:#431407;color:#fb923c}
+    .type-smtp{background:#2e1065;color:#c4b5fd}.type-snmp{background:#083344;color:#67e8f9}
+    .type-radius{background:#450a0a;color:#fca5a5}.type-tailscale{background:#1e1b4b;color:#818cf8}
+    .badge-status{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:999px}
+    .badge-status.up{background:#052e16;color:#4ade80}.badge-status.down{background:#450a0a;color:#f87171}.badge-status.checking{background:#0c2a4a;color:#60a5fa}
+    .card-meta{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+    .meta-row{display:flex;justify-content:space-between;align-items:center}
+    .meta-label{font-size:.72rem;color:#475569}
+    .meta-val{font-size:.75rem;color:#94a3b8;font-family:'JetBrains Mono',monospace;text-align:right;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .meta-val.big{font-size:.85rem;color:#e2e8f0;font-weight:600}
+    .bar-wrap{height:3px;background:#1e293b;border-radius:999px;overflow:hidden;margin-bottom:10px}
+    .bar-fill{height:100%;border-radius:999px;transition:width .5s;background:#22c55e}
+    .down .bar-fill{background:#ef4444}
+    .chart-wrap{height:44px}
+    canvas.sparkline{display:block;width:100%;height:44px}
+    .btn-del{position:absolute;top:14px;right:14px;background:transparent;border:none;color:#1e293b;cursor:pointer;font-size:.85rem;padding:3px 6px;border-radius:5px;transition:all .2s}
+    .btn-del:hover{background:#450a0a;color:#f87171}
+    .range-btn{background:#0d1626;border:1px solid #1e293b;color:#64748b;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:500;transition:all .2s}
+    .range-btn.active{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+    .range-btn:hover:not(.active){border-color:#334155;color:#94a3b8}
+    .hist-card{background:#0d1626;border:1px solid #1e293b;border-radius:14px;padding:18px;margin-bottom:16px}
+    .hist-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+    .hist-card-name{font-weight:700;font-size:1rem;color:#f1f5f9}
+    .hist-kpis{display:flex;gap:20px;flex-wrap:wrap}
+    .hist-kpi{display:flex;flex-direction:column;align-items:center;min-width:55px}
+    .hist-kpi .kv{font-size:1.2rem;font-weight:700;font-family:'JetBrains Mono',monospace}
+    .hist-kpi .kl{font-size:.65rem;color:#475569;margin-top:2px}
+    .kv.green{color:#4ade80}.kv.red{color:#f87171}.kv.blue{color:#60a5fa}.kv.yellow{color:#fbbf24}
+    .chart-container{position:relative;height:160px;margin-bottom:8px}
+    .downtime-list{margin-top:12px;border-top:1px solid #1e293b;padding-top:12px}
+    .downtime-title{font-size:.72rem;color:#475569;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+    .downtime-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #0f1929;font-size:.78rem;gap:8px;flex-wrap:wrap}
+    .downtime-item:last-child{border:none}
+    .downtime-time{color:#f87171;font-family:'JetBrains Mono',monospace}
+    .downtime-dur{color:#94a3b8;font-family:'JetBrains Mono',monospace}
+    .downtime-det{color:#64748b;font-size:.72rem}
+    .no-downtime{font-size:.78rem;color:#4ade80;padding:4px 0}
+    .uptime-bar-full{height:8px;background:#1e293b;border-radius:999px;overflow:hidden;margin-top:8px}
+    .uptime-bar-fill{height:100%;border-radius:999px;transition:width .6s}
+    .tfilter-btn,.afilter-btn{background:#0d1626;border:1px solid #1e293b;color:#64748b;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:500;transition:all .2s}
+    .tfilter-btn.active,.afilter-btn.active{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+    .tfilter-btn:hover:not(.active),.afilter-btn:hover:not(.active){border-color:#334155;color:#94a3b8}
+    .ticket-card{background:#0d1626;border:1px solid #1e293b;border-radius:12px;padding:16px 18px;margin-bottom:10px;display:flex;gap:14px;align-items:flex-start}
+    .ticket-card:hover{border-color:#334155}
+    .ticket-left{display:flex;flex-direction:column;gap:6px;min-width:80px;align-items:flex-start}
+    .ticket-body{flex:1;min-width:0}
+    .ticket-title{font-weight:600;font-size:.92rem;color:#f1f5f9;margin-bottom:4px}
+    .ticket-desc{font-size:.78rem;color:#64748b;line-height:1.5;margin-bottom:8px;white-space:pre-wrap}
+    .ticket-meta{font-size:.7rem;color:#334155;font-family:'JetBrains Mono',monospace}
+    .ticket-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+    .p-badge{font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:.04em;white-space:nowrap}
+    .p-low{background:#052e16;color:#4ade80}.p-medium{background:#431407;color:#fb923c}.p-high{background:#431407;color:#f97316}.p-critical{background:#450a0a;color:#f87171}
+    .s-badge{font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
+    .s-open{background:#450a0a;color:#f87171}.s-inprogress{background:#422006;color:#fbbf24}.s-closed{background:#052e16;color:#4ade80}
+    .empty-state{text-align:center;padding:48px;color:#334155;font-size:.85rem}
+    .asset-card{background:#0d1626;border:1px solid #1e293b;border-left:3px solid #1e293b;border-radius:12px;padding:16px 18px;margin-bottom:10px}
+    .asset-card:hover{border-color:#334155}
+    .asset-card.active{border-left-color:#22c55e}.asset-card.maintenance{border-left-color:#f59e0b}.asset-card.retired{border-left-color:#475569}
+    .asset-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+    .asset-name{font-weight:700;font-size:.95rem;color:#f1f5f9}
+    .asset-badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+    .asset-meta-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px}
+    .asset-meta-item{display:flex;flex-direction:column;gap:2px}
+    .asset-meta-label{font-size:.65rem;color:#334155;letter-spacing:.06em;text-transform:uppercase}
+    .asset-meta-val{font-size:.78rem;color:#94a3b8;font-family:'JetBrains Mono',monospace}
+    .asset-actions{display:flex;gap:6px;flex-wrap:wrap}
+    .as-badge{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:999px}
+    .as-active{background:#052e16;color:#4ade80}.as-maintenance{background:#422006;color:#fbbf24}.as-retired{background:#1e293b;color:#64748b}
+    .type-badge{font-size:.65rem;padding:2px 8px;border-radius:5px;background:#1e293b;color:#64748b;font-weight:600}
+    .tbl{width:100%;border-collapse:collapse;font-size:.83rem}
+    .tbl th{text-align:left;padding:10px 12px;color:#475569;font-size:.72rem;letter-spacing:.06em;border-bottom:1px solid #1e293b}
+    .tbl td{padding:10px 12px;border-bottom:1px solid #0f1929;color:#94a3b8;vertical-align:middle}
+    .tbl tr:last-child td{border:none}
+    .role-badge{font-size:.68rem;padding:2px 8px;border-radius:999px;font-weight:600}
+    .role-admin{background:#1e3a5f;color:#60a5fa}.role-viewer{background:#1e293b;color:#64748b}
+    .btn-sm{font-size:.75rem;padding:4px 10px;border-radius:6px;border:none;cursor:pointer;font-weight:600;transition:all .2s}
+    .btn-danger{background:#450a0a;color:#f87171}.btn-danger:hover{background:#7f1d1d}
+    .btn-edit{background:#1e3a5f;color:#60a5fa}.btn-edit:hover{background:#1d4ed8;color:#fff}
+    .btn-ok{background:#052e16;color:#4ade80}.btn-ok:hover{background:#14532d}
+    .btn-warn{background:#422006;color:#fbbf24}.btn-warn:hover{background:#78350f}
+    .modal-bg{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+    .modal-bg.show{display:flex}
+    .modal{background:#0d1626;border:1px solid #1e293b;border-radius:16px;padding:28px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
+    .modal h2{font-size:1rem;font-weight:700;margin-bottom:18px;color:#f1f5f9}
+    .modal .fg{margin-bottom:12px}
+    .modal .fg input,.modal .fg select,.modal .fg textarea{width:100%}
+    .modal-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+    .btn-cancel{background:transparent;border:1px solid #1e293b;color:#64748b;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.83rem}
+    .btn-cancel:hover{border-color:#475569;color:#94a3b8}
+    .btn-save{background:#1d4ed8;color:#fff;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:.83rem;font-weight:600}
+    .btn-save:hover{background:#2563eb}
+    .modal-error{font-size:.78rem;color:#f87171;margin-top:8px;display:none}
+    .timeline{display:flex;flex-direction:column;gap:12px}
+    .tl-item{display:flex;gap:12px;align-items:flex-start}
+    .tl-dot{width:8px;height:8px;border-radius:50%;background:#3b82f6;margin-top:5px;flex-shrink:0}
+    .tl-content{flex:1}
+    .tl-action{font-size:.82rem;color:#e2e8f0;font-weight:600}
+    .tl-note{font-size:.75rem;color:#64748b;margin-top:2px}
+    .tl-time{font-size:.68rem;color:#334155;font-family:'JetBrains Mono',monospace;margin-top:2px}
+    .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🖥 Monitor Ku <span id="status-ws">● connecting</span></h1>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span id="username-badge" style="font-size:.78rem;color:#475569"></span>
+    <button class="btn-logout" onclick="openChangePassword()" style="border-color:#1e293b">🔑 Ganti Password</button>
+    <button class="btn-logout" onclick="window.location.href='/logout'">Keluar →</button>
+  </div>
+</div>
+<div id="last-update">menunggu data...</div>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="showPage('dashboard',this)">📡 Dashboard</button>
+  <button class="nav-btn" onclick="showPage('history',this)">📊 Riwayat</button>
+  <button class="nav-btn" onclick="showPage('tickets',this)">🎫 Tiket</button>
+  <button class="nav-btn" onclick="showPage('assets',this)">🖥 Aset</button>
+  <button class="nav-btn" onclick="showPage('netmap',this)">🗺️ Network Map</button>
+  <button class="nav-btn" id="nav-users" onclick="showPage('users',this)" style="display:none">👥 Users</button>
+  <button class="nav-btn" id="nav-settings" onclick="showPage('settings',this)" style="display:none">⚙️ Settings</button>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="form-box">
+    <div class="form-title">＋ Tambah Target Monitor</div>
+    <div class="form-row">
+      <div class="fg"><label>NAMA</label><input id="f-name" type="text" placeholder="cth: Router Kantor" style="min-width:150px"/></div>
+      <div class="fg">
+        <label>TIPE</label>
+        <select id="f-type" onchange="renderFields()" style="min-width:150px">
+          <option value="ping">Ping (ICMP)</option><option value="http">HTTP / HTTPS</option>
+          <option value="tcp">TCP Port</option><option value="dns">DNS</option>
+          <option value="smtp">SMTP</option><option value="snmp">SNMP</option>
+          <option value="radius">RADIUS</option><option value="tailscale">Tailscale Ping</option>
+        </select>
+      </div>
+      <div id="dyn" style="display:contents"></div>
+      <button class="btn-add" onclick="tambah()">＋ Tambah</button>
+    </div>
+    <div class="form-error" id="form-error"></div>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- HISTORY -->
+<div class="page" id="page-history">
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="range-btn active" onclick="setRange('1h',this)">1 Jam</button>
+      <button class="range-btn" onclick="setRange('5h',this)">5 Jam</button>
+      <button class="range-btn" onclick="setRange('24h',this)">24 Jam</button>
+      <button class="range-btn" onclick="setRange('7d',this)">7 Hari</button>
+      <button class="range-btn" onclick="setRange('30d',this)">30 Hari</button>
+      <button class="range-btn" onclick="setRange('60d',this)">60 Hari</button>
+      <button class="range-btn" onclick="setRange('1y',this)">1 Tahun</button>
+    </div>
+    <select id="hist-target-sel" onchange="loadHistory()" style="background:#0d1626;border:1px solid #1e293b;color:#e2e8f0;padding:7px 12px;border-radius:8px;font-size:.83rem;outline:none;margin-left:auto">
+      <option value="">Semua Target</option>
+    </select>
+    <span id="hist-info" style="font-size:.75rem;color:#475569;font-family:'JetBrains Mono',monospace"></span>
+  </div>
+  <div id="hist-stat-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:24px"></div>
+  <div id="hist-charts"></div>
+</div>
+
+<!-- TICKETS -->
+<div class="page" id="page-tickets">
+  <div class="section-header">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="tfilter-btn active" onclick="filterTickets('all',this)">Semua</button>
+      <button class="tfilter-btn" onclick="filterTickets('open',this)">🔴 Open</button>
+      <button class="tfilter-btn" onclick="filterTickets('inprogress',this)">🟡 In Progress</button>
+      <button class="tfilter-btn" onclick="filterTickets('closed',this)">🟢 Closed</button>
+    </div>
+    <button class="btn-add" onclick="openTicketModal()">＋ Buat Tiket</button>
+  </div>
+  <div id="ticket-list"></div>
+</div>
+
+<!-- ASSETS -->
+<div class="page" id="page-assets">
+  <div class="section-header">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="afilter-btn active" onclick="filterAssets('all',this)">Semua</button>
+      <button class="afilter-btn" onclick="filterAssets('active',this)">🟢 Active</button>
+      <button class="afilter-btn" onclick="filterAssets('maintenance',this)">🟡 Maintenance</button>
+      <button class="afilter-btn" onclick="filterAssets('retired',this)">⚫ Retired</button>
+    </div>
+    <button class="btn-add" onclick="openAssetModal()">＋ Tambah Aset</button>
+  </div>
+  <div id="asset-list"></div>
+</div>
+
+<!-- USERS -->
+<div class="page" id="page-users">
+  <div class="section-header">
+    <span style="font-size:.8rem;color:#475569">Kelola akun yang bisa mengakses Monitor Ku</span>
+    <button class="btn-add" onclick="openAddUser()">＋ Tambah User</button>
+  </div>
+  <div style="background:#0d1626;border:1px solid #1e293b;border-radius:12px;overflow:hidden">
+    <table class="tbl">
+      <thead><tr><th>USERNAME</th><th>ROLE</th><th>AKSI</th></tr></thead>
+      <tbody id="user-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="page" id="page-settings">
+  <div style="background:#0d1626;border:1px solid #1e293b;border-radius:14px;padding:24px;max-width:560px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <span style="font-size:1.3rem">✈️</span>
+      <span style="font-weight:700;font-size:1rem;color:#f1f5f9">Notifikasi Telegram</span>
+    </div>
+    <div style="font-size:.78rem;color:#475569;margin-bottom:20px">Kirim notifikasi otomatis ke Telegram saat target DOWN atau kembali online.</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding:12px 14px;background:#080e1a;border-radius:10px;border:1px solid #1e293b">
+      <div>
+        <div style="font-size:.85rem;font-weight:600;color:#e2e8f0">Aktifkan Notifikasi</div>
+        <div style="font-size:.73rem;color:#475569;margin-top:2px">Kirim pesan saat status berubah</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+        <input type="checkbox" id="tg-enabled" style="opacity:0;width:0;height:0" onchange="updateToggleUI(this.checked)"/>
+        <span id="tg-toggle-ui" style="position:absolute;inset:0;background:#1e293b;border-radius:999px;transition:.3s">
+          <span style="position:absolute;left:2px;top:2px;width:20px;height:20px;background:#64748b;border-radius:50%;transition:.3s" id="tg-knob"></span>
+        </span>
+      </label>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label>BOT TOKEN</label>
+      <input id="tg-token" type="text" placeholder="cth: 123456789:ABCdefGHI..." style="width:100%;font-family:'JetBrains Mono',monospace;font-size:.78rem"/>
+    </div>
+    <div class="fg" style="margin-bottom:18px">
+      <label>CHAT ID</label>
+      <input id="tg-chatid" type="text" placeholder="cth: 123456789" style="width:100%;font-family:'JetBrains Mono',monospace;font-size:.78rem"/>
+      <div style="font-size:.7rem;color:#334155;margin-top:4px">💡 Cara dapat Chat ID: Kirim pesan ke bot → buka <code style="background:#1e293b;padding:1px 5px;border-radius:4px">api.telegram.org/bot<b>TOKEN</b>/getUpdates</code> → cari <code style="background:#1e293b;padding:1px 5px;border-radius:4px">"chat":{"id":...}</code></div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-add" onclick="saveTelegramSettings()">💾 Simpan</button>
+      <button class="btn-sm btn-edit" style="padding:8px 16px;font-size:.83rem" onclick="testTelegram()">📨 Test Kirim Pesan</button>
+    </div>
+    <div id="tg-status" style="margin-top:12px;font-size:.78rem;display:none"></div>
+  </div>
+  <div style="background:#0d1626;border:1px solid #1e293b;border-radius:14px;padding:20px;max-width:560px">
+    <div style="font-weight:600;font-size:.88rem;color:#f1f5f9;margin-bottom:12px">📖 Cara Setup Bot Telegram</div>
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:.8rem;color:#64748b;line-height:1.6">
+      <div><span style="color:#60a5fa;font-weight:600">1.</span> Buka Telegram → cari <b style="color:#e2e8f0">@BotFather</b></div>
+      <div><span style="color:#60a5fa;font-weight:600">2.</span> Ketik <code style="background:#1e293b;padding:1px 6px;border-radius:4px;color:#4ade80">/newbot</code> → ikuti instruksi → dapat <b style="color:#e2e8f0">Bot Token</b></div>
+      <div><span style="color:#60a5fa;font-weight:600">3.</span> Cari bot kamu di Telegram → klik <b style="color:#e2e8f0">Start</b></div>
+      <div><span style="color:#60a5fa;font-weight:600">4.</span> Buka URL ini di browser:<br><code style="background:#1e293b;padding:3px 8px;border-radius:4px;color:#fbbf24;display:inline-block;margin-top:4px">https://api.telegram.org/bot<b>TOKEN</b>/getUpdates</code></div>
+      <div><span style="color:#60a5fa;font-weight:600">5.</span> Cari angka di <code style="background:#1e293b;padding:1px 6px;border-radius:4px;color:#4ade80">"chat":{"id": 123456}</code> → itu Chat ID kamu</div>
+      <div><span style="color:#60a5fa;font-weight:600">6.</span> Paste Token & Chat ID di form atas → klik <b style="color:#e2e8f0">Test Kirim Pesan</b></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- NETWORK MAP -->
+<div class="page" id="page-netmap">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:.78rem;color:#475569">Klik canvas untuk tambah node · Drag node untuk pindahkan · Klik node untuk opsi</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap" id="netmap-admin-tools" style="display:none">
+      <button class="btn-sm btn-edit" onclick="setMapMode('add')" id="mode-add" style="padding:6px 14px">＋ Tambah Node</button>
+      <button class="btn-sm" style="background:#1e293b;color:#94a3b8;padding:6px 14px" onclick="setMapMode('connect')" id="mode-connect">🔗 Hubungkan</button>
+      <button class="btn-sm btn-ok" style="padding:6px 14px" onclick="setMapMode('move')" id="mode-move">✥ Pindah</button>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:.72rem;color:#475569">
+    <span>🟢 UP</span><span>🔴 DOWN</span><span>⚫ No monitor</span>
+    <span style="margin-left:8px">🌐 Router</span><span>🔀 Switch</span><span>🖥 Server</span><span>💻 PC</span><span>📡 AP</span><span>🔥 Firewall</span><span>☁️ Cloud</span>
+  </div>
+
+  <!-- Canvas -->
+  <div style="position:relative;background:#0d1626;border:1px solid #1e293b;border-radius:14px;overflow:hidden">
+    <canvas id="netmap-canvas" style="display:block;cursor:crosshair" width="1200" height="600"></canvas>
+    <div id="netmap-mode-indicator" style="position:absolute;top:12px;left:12px;font-size:.72rem;padding:4px 10px;background:#1d4ed8;color:#fff;border-radius:999px;display:none"></div>
+  </div>
+</div>
+
+<!-- MODAL ADD NODE -->
+<div class="modal-bg" id="modal-node">
+  <div class="modal" style="max-width:400px">
+    <h2 id="node-modal-title">＋ Tambah Node</h2>
+    <input type="hidden" id="node-modal-id" value=""/>
+    <input type="hidden" id="node-modal-x" value="0"/>
+    <input type="hidden" id="node-modal-y" value="0"/>
+    <div class="fg"><label>NAMA / LABEL</label><input id="nm-label" type="text" placeholder="cth: Router Utama"/></div>
+    <div class="fg"><label>TIPE PERANGKAT</label>
+      <select id="nm-type">
+        <option value="router">🌐 Router</option>
+        <option value="switch">🔀 Switch</option>
+        <option value="server">🖥 Server</option>
+        <option value="pc">💻 PC / Laptop</option>
+        <option value="ap">📡 Access Point</option>
+        <option value="firewall">🔥 Firewall</option>
+        <option value="cloud">☁️ Cloud / Internet</option>
+        <option value="monitor">📊 Monitor Target</option>
+      </select>
+    </div>
+    <div class="fg"><label>LINK KE TARGET MONITORING (opsional)</label>
+      <select id="nm-linked"><option value="">— Tidak dilink —</option></select>
+    </div>
+    <div class="modal-error" id="node-modal-error"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeNodeModal()">Batal</button>
+      <button class="btn-save" onclick="saveNode()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NODE OPTIONS -->
+<div class="modal-bg" id="modal-node-options">
+  <div class="modal" style="max-width:340px">
+    <h2 id="node-opt-title">Node Options</h2>
+    <input type="hidden" id="node-opt-id"/>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+      <button class="btn-sm btn-edit" style="padding:10px;font-size:.85rem" onclick="editNode()">✏ Edit Node</button>
+      <button class="btn-sm" style="background:#1e293b;color:#60a5fa;padding:10px;font-size:.85rem" onclick="startConnectFrom()">🔗 Hubungkan ke Node Lain</button>
+      <button class="btn-sm btn-danger" style="padding:10px;font-size:.85rem" onclick="deleteNode()">✕ Hapus Node</button>
+    </div>
+    <div class="modal-btns"><button class="btn-cancel" onclick="closeNodeOptions()">Tutup</button></div>
+  </div>
+</div>
+
+<!-- MODAL TICKET -->
+<div class="modal-bg" id="modal-ticket">
+  <div class="modal">
+    <h2 id="ticket-modal-title">🎫 Buat Tiket Baru</h2>
+    <input type="hidden" id="ticket-modal-mode" value="add"/>
+    <input type="hidden" id="ticket-modal-id" value=""/>
+    <div class="fg"><label>JUDUL</label><input id="tm-title" type="text" placeholder="Deskripsi singkat masalah"/></div>
+    <div class="fg"><label>DESKRIPSI</label><textarea id="tm-desc" placeholder="Detail masalah..."></textarea></div>
+    <div style="display:flex;gap:10px">
+      <div class="fg" style="flex:1"><label>PRIORITAS</label>
+        <select id="tm-priority">
+          <option value="low">🟢 Low</option><option value="medium" selected>🟡 Medium</option>
+          <option value="high">🟠 High</option><option value="critical">🔴 Critical</option>
+        </select>
+      </div>
+      <div class="fg" id="tm-status-wrap" style="flex:1;display:none"><label>STATUS</label>
+        <select id="tm-status">
+          <option value="open">🔴 Open</option><option value="inprogress">🟡 In Progress</option><option value="closed">🟢 Closed</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-error" id="ticket-modal-error"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeTicketModal()">Batal</button>
+      <button class="btn-save" onclick="saveTicket()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ASSET -->
+<div class="modal-bg" id="modal-asset">
+  <div class="modal" style="max-width:520px">
+    <h2 id="asset-modal-title">🖥 Tambah Aset Baru</h2>
+    <input type="hidden" id="asset-modal-mode" value="add"/>
+    <input type="hidden" id="asset-modal-id" value=""/>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg" style="grid-column:1/-1"><label>NAMA ASET</label><input id="am-name" type="text" placeholder="cth: Switch Lantai 2"/></div>
+      <div class="fg"><label>TIPE</label>
+        <select id="am-type">
+          <option>Router</option><option>Switch</option><option>Server</option><option>PC</option>
+          <option>Laptop</option><option>Printer</option><option>CCTV</option>
+          <option>Access Point</option><option>NAS</option><option>UPS</option><option>Other</option>
+        </select>
+      </div>
+      <div class="fg"><label>STATUS</label>
+        <select id="am-status">
+          <option value="active">🟢 Active</option><option value="maintenance">🟡 Maintenance</option><option value="retired">⚫ Retired</option>
+        </select>
+      </div>
+      <div class="fg"><label>LOKASI</label><input id="am-location" type="text" placeholder="cth: Server Room Lt.1"/></div>
+      <div class="fg"><label>SERIAL NUMBER</label><input id="am-serial" type="text" placeholder="cth: SN-12345"/></div>
+      <div class="fg"><label>NAMA PEMILIK</label><input id="am-owner" type="text" placeholder="cth: Budi Santoso"/></div>
+      <div class="fg"><label>NIK / NOMOR INDUK KERJA</label><input id="am-nik" type="text" placeholder="cth: 1234567890"/></div>
+      <div class="fg" style="grid-column:1/-1"><label>LINK KE TARGET MONITORING</label>
+        <select id="am-linked"><option value="">— Tidak dilink —</option></select>
+      </div>
+    </div>
+    <div class="modal-error" id="asset-modal-error"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeAssetModal()">Batal</button>
+      <button class="btn-save" onclick="saveAsset()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ASSET HISTORY -->
+<div class="modal-bg" id="modal-asset-history">
+  <div class="modal" style="max-width:500px">
+    <h2 id="ah-title">📋 Riwayat Aset</h2>
+    <div id="ah-body" style="margin-top:12px"></div>
+    <div class="modal-btns"><button class="btn-cancel" onclick="document.getElementById('modal-asset-history').classList.remove('show')">Tutup</button></div>
+  </div>
+</div>
+
+<!-- MODAL USER -->
+<div class="modal-bg" id="modal-user">
+  <div class="modal">
+    <h2 id="modal-title">＋ Tambah User Baru</h2>
+    <input type="hidden" id="modal-mode" value="add"/>
+    <input type="hidden" id="modal-target-user" value=""/>
+    <div class="fg"><label>USERNAME</label><input id="mu-username" type="text" placeholder="contoh: operator1"/></div>
+    <div class="fg"><label>PASSWORD</label><input id="mu-password" type="password" placeholder="min. 6 karakter"/></div>
+    <div class="fg"><label>ROLE</label>
+      <select id="mu-role">
+        <option value="viewer">Viewer — hanya bisa lihat</option>
+        <option value="admin">Admin — bisa tambah/hapus</option>
+      </select>
+    </div>
+    <div class="modal-error" id="modal-error"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Batal</button>
+      <button class="btn-save" onclick="saveUser()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GANTI PASSWORD -->
+<div class="modal-bg" id="modal-changepass">
+  <div class="modal" style="max-width:380px">
+    <h2>🔑 Ganti Password</h2>
+    <div class="fg"><label>PASSWORD LAMA</label><input id="cp-old" type="password" placeholder="Password saat ini"/></div>
+    <div class="fg"><label>PASSWORD BARU</label><input id="cp-new" type="password" placeholder="Minimal 6 karakter"/></div>
+    <div class="fg"><label>KONFIRMASI PASSWORD BARU</label><input id="cp-confirm" type="password" placeholder="Ulangi password baru" onkeydown="if(event.key==='Enter')saveChangePassword()"/></div>
+    <div class="modal-error" id="cp-error"></div>
+    <div id="cp-success" style="font-size:.78rem;color:#4ade80;margin-top:8px;display:none">✅ Password berhasil diubah!</div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeChangePassword()">Batal</button>
+      <button class="btn-save" onclick="saveChangePassword()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let myRole='viewer';
+function gv(id){const e=document.getElementById(id);return e?e.value.trim():'';}
+function showErr(id,msg){const e=document.getElementById(id);if(e){e.textContent='⚠ '+msg;e.style.display='block';}}
+function hideErr(id){const e=document.getElementById(id);if(e)e.style.display='none';}
+function formatTime(iso){if(!iso)return'-';return new Date(iso).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function formatDuration(ms){if(ms<1000)return ms+'ms';if(ms<60000)return Math.round(ms/1000)+'d';if(ms<3600000)return Math.floor(ms/60000)+'m '+Math.round((ms%60000)/1000)+'d';return Math.floor(ms/3600000)+'j '+Math.floor((ms%3600000)/60000)+'m';}
+
+async function init(){
+  const me=await fetch('/api/me').then(r=>r.json());
+  myRole=me.role;
+  document.getElementById('username-badge').textContent='👤 '+me.username+' ('+me.role+')';
+  if(myRole==='admin') {
+    document.getElementById('nav-users').style.display='';
+    document.getElementById('nav-settings').style.display='';
+  }
+  renderFields();connect();initHistory();startHistAutoRefresh();
+}
+
+function showPage(p,btn){
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(p==='history')loadHistory();
+  if(p==='users')loadUsers();
+  if(p==='tickets')loadTickets();
+  if(p==='assets')loadAssets();
+  if(p==='settings')loadTelegramSettings();
+  if(p==='netmap'){initNetMap();}
+}
+
+// DASHBOARD
+const FIELD_MAP={
+  ping:[{id:'fh',label:'HOST / IP',ph:'192.168.1.1',t:'text'}],
+  http:[{id:'fu',label:'URL',ph:'https://...',t:'text',w:'220px'}],
+  tcp:[{id:'fh',label:'HOST / IP',ph:'192.168.1.1',t:'text'},{id:'fp',label:'PORT',ph:'22',t:'number',w:'80px'}],
+  dns:[{id:'fd',label:'DOMAIN',ph:'example.com',t:'text'},{id:'fn',label:'DNS SERVER',ph:'8.8.8.8',t:'text'}],
+  smtp:[{id:'fh',label:'HOST / IP',ph:'mail.server.com',t:'text'},{id:'fp',label:'PORT',ph:'25',t:'number',w:'80px'}],
+  snmp:[{id:'fh',label:'HOST / IP',ph:'192.168.1.1',t:'text'},{id:'fc',label:'COMMUNITY',ph:'public',t:'text',w:'100px'},{id:'fo',label:'OID',ph:'1.3.6.1.2.1.1.1.0',t:'text',w:'180px'}],
+  radius:[{id:'fh',label:'HOST / IP',ph:'192.168.1.1',t:'text'},{id:'fp',label:'PORT',ph:'1812',t:'number',w:'80px'}],
+  tailscale:[{id:'ft',label:'PEER',ph:'100.x.x.x',t:'text'}],
+};
+function renderFields(){
+  const type=document.getElementById('f-type').value;
+  const dyn=document.getElementById('dyn');dyn.innerHTML='';
+  (FIELD_MAP[type]||[]).forEach(f=>{
+    const d=document.createElement('div');d.className='fg';
+    d.innerHTML='<label>'+f.label+'</label><input id="'+f.id+'" type="'+f.t+'" placeholder="'+f.ph+'" style="min-width:'+(f.w||'130px')+'"/>';
+    dyn.appendChild(d);
+  });
+}
+async function tambah(){
+  if(myRole!=='admin')return showErr('form-error','Hanya admin yang bisa menambah target');
+  hideErr('form-error');
+  const name=gv('f-name'),type=document.getElementById('f-type').value;
+  if(!name)return showErr('form-error','Nama wajib diisi!');
+  let body={name,type};
+  if(type==='http'){const url=gv('fu');if(!url)return showErr('form-error','URL wajib!');body={...body,url};}
+  else if(type==='tcp'||type==='smtp'){const host=gv('fh'),port=parseInt(gv('fp'));if(!host||!port)return showErr('form-error','Host & Port wajib!');body={...body,host,port};}
+  else if(type==='ping'){const host=gv('fh');if(!host)return showErr('form-error','Host wajib!');body={...body,host};}
+  else if(type==='radius'){const host=gv('fh');if(!host)return showErr('form-error','Host wajib!');const port=gv('fp');body={...body,host,...(port?{port:parseInt(port)}:{})};}
+  else if(type==='dns'){const domain=gv('fd');if(!domain)return showErr('form-error','Domain wajib!');const ns=gv('fn');body={...body,domain,...(ns?{dnsServer:ns}:{})};}
+  else if(type==='snmp'){const host=gv('fh');if(!host)return showErr('form-error','Host wajib!');body={...body,host,community:gv('fc')||'public',oid:gv('fo')||'1.3.6.1.2.1.1.1.0'};}
+  else if(type==='tailscale'){const peer=gv('ft');if(!peer)return showErr('form-error','Peer wajib!');body={...body,peer};}
+  const res=await fetch('/api/targets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(res.ok){document.getElementById('f-name').value='';renderFields();}
+  else{const e=await res.json();showErr('form-error',e.error);}
+}
+async function hapus(name){
+  if(myRole!=='admin')return alert('Hanya admin yang bisa menghapus');
+  if(!confirm('Hapus "'+name+'"?'))return;
+  await fetch('/api/targets/'+encodeURIComponent(name),{method:'DELETE'});
+  if(cards[name]){cards[name].remove();delete cards[name];}
+}
+
+// SPARKLINE
+function drawSpark(canvas,hist,isUp){
+  const dpr=window.devicePixelRatio||1,w=canvas.offsetWidth||240,h=44;
+  canvas.width=w*dpr;canvas.height=h*dpr;
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
+  const vals=hist.map(x=>x.ms);if(vals.length<2)return;
+  const max=Math.max(...vals,1),min=Math.min(...vals),range=max-min||1,step=w/(vals.length-1);
+  const py=v=>h-((v-min)/range)*(h-8)-4;
+  const g=ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,isUp?'rgba(34,197,94,.25)':'rgba(239,68,68,.25)');g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath();vals.forEach((v,i)=>{const x=i*step;i===0?ctx.moveTo(x,py(v)):ctx.lineTo(x,py(v));});
+  ctx.lineTo((vals.length-1)*step,h);ctx.lineTo(0,h);ctx.closePath();ctx.fillStyle=g;ctx.fill();
+  ctx.beginPath();vals.forEach((v,i)=>{const x=i*step;i===0?ctx.moveTo(x,py(v)):ctx.lineTo(x,py(v));});
+  ctx.strokeStyle=isUp?'#22c55e':'#ef4444';ctx.lineWidth=1.5;ctx.stroke();
+  const lx=(vals.length-1)*step,ly=py(vals[vals.length-1]);
+  ctx.beginPath();ctx.arc(lx,ly,3,0,Math.PI*2);ctx.fillStyle=isUp?'#4ade80':'#f87171';ctx.fill();
+}
+
+// CARD
+const TYPE_CLS={http:'type-http',tcp:'type-tcp',ping:'type-ping',dns:'type-dns',smtp:'type-smtp',snmp:'type-snmp',radius:'type-radius',tailscale:'type-tailscale'};
+const grid=document.getElementById('grid');
+const cards={};
+function updateCard(item){
+  if(!cards[item.name]){
+    const c=document.createElement('div');c.className='card checking';
+    c.innerHTML='<button class="btn-del" onclick="hapus(\''+item.name+'\')" title="Hapus">✕</button><div class="card-head"><span class="card-name">'+item.name+'</span><div class="badges"><span class="badge-type '+(TYPE_CLS[item.type]||'')+'">'+item.type.toUpperCase()+'</span><span class="badge-status checking">···</span></div></div><div class="card-meta"><div class="meta-row"><span class="meta-label">Alamat</span><span class="meta-val addr">-</span></div><div class="meta-row"><span class="meta-label">Response</span><span class="meta-val big resp">-</span></div><div class="meta-row"><span class="meta-label">Detail</span><span class="meta-val det">-</span></div></div><div class="bar-wrap"><div class="bar-fill" style="width:0%"></div></div><div class="chart-wrap"><canvas class="sparkline"></canvas></div>';
+    grid.appendChild(c);cards[item.name]=c;
+  }
+  const c=cards[item.name],up=item.ok;
+  c.className='card '+(up?'up':'down');
+  c.querySelector('.badge-status').className='badge-status '+(up?'up':'down');
+  c.querySelector('.badge-status').textContent=up?'UP':'DOWN';
+  c.querySelector('.resp').textContent=item.ms+'ms';
+  c.querySelector('.det').textContent=item.detail??'-';
+  c.querySelector('.addr').textContent=item.address??'-';
+  c.querySelector('.bar-fill').style.width=Math.min((item.ms/500)*100,100)+'%';
+  if(item.history&&item.history.length>1)drawSpark(c.querySelector('canvas.sparkline'),item.history,up);
+}
+
+// WEBSOCKET
+function connect(){
+  const ws=new WebSocket('ws://'+location.host+'/ws');
+  const sw=document.getElementById('status-ws');
+  ws.onopen=()=>{sw.textContent='● live';sw.className='connected';};
+  ws.onclose=()=>{sw.textContent='● offline';sw.className='disconnected';setTimeout(connect,3000);};
+  ws.onerror=e=>console.error('WS error',e);
+  ws.onmessage=e=>{
+    try{
+      const d=JSON.parse(e.data);
+      document.getElementById('last-update').textContent='update: '+d.waktu;
+      if(Array.isArray(d.results)){d.results.forEach(updateCard);updateNetMapStatus(d.results);}
+    }catch(ex){console.error('parse err',ex);}
+  };
+}
+
+// HISTORY
+let currentRange='1h',histAutoRefresh=null;
+async function initHistory(){
+  const sel=document.getElementById('hist-target-sel');
+  const tgts=await fetch('/api/targets').then(r=>r.json());
+  sel.innerHTML='<option value="">Semua Target</option>';
+  tgts.forEach(t=>{const o=document.createElement('option');o.value=t.name;o.textContent=t.name;sel.appendChild(o);});
+}
+function setRange(r,btn){currentRange=r;document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');loadHistory();}
+function calcDowntimes(entries){
+  const downs=[];let downStart=null,downDetail='';
+  for(let i=0;i<entries.length;i++){
+    const e=entries[i];
+    if(!e.ok&&!downStart){downStart=e.time;downDetail=e.detail??'';}
+    else if(e.ok&&downStart){downs.push({start:downStart,end:e.time,dur:new Date(e.time)-new Date(downStart),detail:downDetail});downStart=null;}
+  }
+  if(downStart)downs.push({start:downStart,end:null,dur:Date.now()-new Date(downStart),detail:downDetail});
+  return downs;
+}
+function bucketEntries(entries,buckets=80){
+  if(!entries.length)return[];
+  const times=entries.map(e=>new Date(e.time).getTime());
+  const minT=Math.min(...times),maxT=Math.max(...times),bucketSize=(maxT-minT)/buckets||1;
+  return Array.from({length:buckets},(_,i)=>{
+    const bStart=minT+i*bucketSize,bEnd=bStart+bucketSize;
+    const inB=entries.filter(e=>{const t=new Date(e.time).getTime();return t>=bStart&&t<bEnd;});
+    if(!inB.length)return null;
+    const avgMs=Math.round(inB.reduce((s,e)=>s+e.ms,0)/inB.length);
+    return{ms:avgMs,ok:inB.filter(e=>e.ok).length>inB.length/2,time:new Date(bStart+bucketSize/2).toISOString()};
+  });
+}
+function drawHistChart(canvas,buckets,maxMs){
+  const dpr=window.devicePixelRatio||1,w=canvas.offsetWidth||600,h=140;
+  canvas.width=w*dpr;canvas.height=h*dpr;
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
+  const valid=buckets.filter(b=>b!==null);if(!valid.length)return;
+  const max=maxMs||Math.max(...valid.map(b=>b.ms),1),bw=w/buckets.length;
+  ctx.strokeStyle='#1e293b';ctx.lineWidth=1;
+  [.25,.5,.75,1].forEach(f=>{const y=h-f*(h-20)-10;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();});
+  buckets.forEach((b,i)=>{
+    if(!b)return;
+    const x=i*bw,barH=(b.ms/max)*(h-20),y=h-barH-10;
+    ctx.fillStyle=b.ok?'#22c55e':'#ef4444';ctx.globalAlpha=.85;ctx.fillRect(x+1,y,Math.max(bw-2,1),barH);ctx.globalAlpha=1;
+  });
+  ctx.beginPath();ctx.strokeStyle='#60a5fa';ctx.lineWidth=1.5;let started=false;
+  buckets.forEach((b,i)=>{if(!b){started=false;return;}const x=i*bw+bw/2,y=h-((b.ms/max)*(h-20))-10;if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);});
+  ctx.stroke();
+}
+async function loadHistory(){
+  const range=currentRange,target=document.getElementById('hist-target-sel')?.value??'';
+  const params=new URLSearchParams({range,...(target?{target}:{})});
+  const data=await fetch('/api/history/range?'+params).then(r=>r.json());
+  const names=Object.keys(data);
+  document.getElementById('hist-info').textContent=names.length+' target · '+range;
+  const statGrid=document.getElementById('hist-stat-grid');statGrid.innerHTML='';
+  names.forEach(name=>{
+    const entries=data[name],total=entries.length;
+    const upCount=entries.filter(e=>e.ok).length,downCount=total-upCount;
+    const avgMs=total?Math.round(entries.reduce((s,e)=>s+e.ms,0)/total):0;
+    const minMs=total?Math.min(...entries.map(e=>e.ms)):0,maxMs=total?Math.max(...entries.map(e=>e.ms)):0;
+    const upPct=total?Math.round((upCount/total)*100):0;
+    const color=upPct>=99?'#4ade80':upPct>=90?'#fbbf24':'#f87171';
+    const div=document.createElement('div');
+    div.style.cssText='background:#0d1626;border:1px solid #1e293b;border-radius:12px;padding:16px;cursor:pointer';
+    div.onclick=()=>{const el=document.getElementById('chart-'+name.replace(/\s/g,'_'));if(el)el.scrollIntoView({behavior:'smooth',block:'start'});};
+    div.innerHTML='<div style="font-weight:700;font-size:.88rem;color:#f1f5f9;margin-bottom:10px">'+name+'</div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="hist-kpi"><span class="kv green">'+upPct+'%</span><span class="kl">UPTIME</span></div><div class="hist-kpi"><span class="kv blue">'+avgMs+'ms</span><span class="kl">AVG</span></div><div class="hist-kpi"><span class="kv" style="color:#94a3b8">'+minMs+'ms</span><span class="kl">MIN</span></div><div class="hist-kpi"><span class="kv yellow">'+maxMs+'ms</span><span class="kl">MAX</span></div><div class="hist-kpi"><span class="kv red">'+downCount+'</span><span class="kl">DOWN</span></div></div><div class="uptime-bar-full"><div class="uptime-bar-fill" style="width:'+upPct+'%;background:'+color+'"></div></div>';
+    statGrid.appendChild(div);
+  });
+  const chartsDiv=document.getElementById('hist-charts');chartsDiv.innerHTML='';
+  names.forEach(name=>{
+    const entries=data[name];if(!entries.length)return;
+    const downtimes=calcDowntimes(entries),buckets=bucketEntries(entries,80),maxMs=Math.max(...entries.map(e=>e.ms),1);
+    const id='chart-'+name.replace(/\s/g,'_');
+    const div=document.createElement('div');div.className='hist-card';div.id=id;
+    div.innerHTML='<div class="hist-card-header"><span class="hist-card-name">'+name+'</span><div class="hist-kpis"><div class="hist-kpi"><span class="kv green">'+entries.filter(e=>e.ok).length+'</span><span class="kl">UP</span></div><div class="hist-kpi"><span class="kv red">'+entries.filter(e=>!e.ok).length+'</span><span class="kl">DOWN</span></div><div class="hist-kpi"><span class="kv blue">'+Math.round(entries.reduce((s,e)=>s+e.ms,0)/entries.length)+'ms</span><span class="kl">AVG</span></div></div></div><div class="chart-container"><canvas id="cv-'+id+'" style="width:100%;height:160px;display:block"></canvas></div><div style="display:flex;justify-content:space-between;font-size:.68rem;color:#334155;font-family:JetBrains Mono,monospace;margin-top:4px"><span>'+formatTime(entries[0]?.time)+'</span><span style="color:#475569">response time (ms)</span><span>'+formatTime(entries[entries.length-1]?.time)+'</span></div><div class="downtime-list"><div class="downtime-title">⬇ Riwayat Downtime ('+downtimes.length+' kejadian)</div>'+
+    (downtimes.length===0?'<div class="no-downtime">✅ Tidak ada downtime dalam periode ini</div>':
+    downtimes.slice(-10).reverse().map(d=>'<div class="downtime-item"><span class="downtime-time">⬇ '+formatTime(d.start)+'</span><span class="downtime-dur">'+formatDuration(d.dur)+(d.end?'':' (sedang down)')+'</span><span class="downtime-det">'+d.detail+'</span></div>').join(''))+'</div>';
+    chartsDiv.appendChild(div);
+    requestAnimationFrame(()=>{const canvas=document.getElementById('cv-'+id);if(canvas)drawHistChart(canvas,buckets,maxMs);});
+  });
+}
+function startHistAutoRefresh(){
+  if(histAutoRefresh)clearInterval(histAutoRefresh);
+  histAutoRefresh=setInterval(()=>{if(document.getElementById('page-history').classList.contains('active'))loadHistory();},30000);
+}
+
+// TICKETS
+let allTickets=[],ticketFilter='all';
+async function loadTickets(){allTickets=await fetch('/api/tickets').then(r=>r.json());renderTickets();}
+function filterTickets(f,btn){ticketFilter=f;document.querySelectorAll('.tfilter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderTickets();}
+function renderTickets(){
+  const list=document.getElementById('ticket-list');
+  const filtered=ticketFilter==='all'?allTickets:allTickets.filter(t=>t.status===ticketFilter);
+  if(!filtered.length){list.innerHTML='<div class="empty-state">Tidak ada tiket'+(ticketFilter!=='all'?' dengan status <b>'+ticketFilter+'</b>':'')+'</div>';return;}
+  list.innerHTML=filtered.map(t=>'<div class="ticket-card"><div class="ticket-left"><span class="p-badge p-'+t.priority+'">'+t.priority.toUpperCase()+'</span><span class="s-badge s-'+t.status+'">'+(t.status==='inprogress'?'IN PROG':t.status.toUpperCase())+'</span></div><div class="ticket-body"><div class="ticket-title">'+t.title+'</div>'+(t.description?'<div class="ticket-desc">'+t.description+'</div>':'')+'<div class="ticket-meta">#'+t.id+' · '+t.createdBy+' · '+formatTime(t.createdAt)+'</div><div class="ticket-actions">'+(t.status!=='inprogress'&&t.status!=='closed'?'<button class="btn-sm btn-warn" onclick="changeTicketStatus(\''+t.id+'\',\'inprogress\')">▶ In Progress</button>':'')+(t.status!=='closed'?'<button class="btn-sm btn-ok" onclick="changeTicketStatus(\''+t.id+'\',\'closed\')">✓ Close</button>':'')+(t.status==='closed'?'<button class="btn-sm btn-edit" onclick="changeTicketStatus(\''+t.id+'\',\'open\')">↺ Reopen</button>':'')+'<button class="btn-sm btn-edit" onclick="openEditTicket(\''+t.id+'\')">✏ Edit</button>'+(myRole==='admin'?'<button class="btn-sm btn-danger" onclick="deleteTicket(\''+t.id+'\')">✕ Hapus</button>':'')+'</div></div></div>').join('');
+}
+function openTicketModal(){
+  document.getElementById('ticket-modal-title').textContent='🎫 Buat Tiket Baru';
+  document.getElementById('ticket-modal-mode').value='add';
+  document.getElementById('ticket-modal-id').value='';
+  document.getElementById('tm-title').value='';
+  document.getElementById('tm-desc').value='';
+  document.getElementById('tm-priority').value='medium';
+  document.getElementById('tm-status-wrap').style.display='none';
+  hideErr('ticket-modal-error');
+  document.getElementById('modal-ticket').classList.add('show');
+}
+function openEditTicket(id){
+  const t=allTickets.find(t=>t.id===id);if(!t)return;
+  document.getElementById('ticket-modal-title').textContent='✏ Edit Tiket';
+  document.getElementById('ticket-modal-mode').value='edit';
+  document.getElementById('ticket-modal-id').value=id;
+  document.getElementById('tm-title').value=t.title;
+  document.getElementById('tm-desc').value=t.description;
+  document.getElementById('tm-priority').value=t.priority;
+  document.getElementById('tm-status').value=t.status;
+  document.getElementById('tm-status-wrap').style.display='block';
+  hideErr('ticket-modal-error');
+  document.getElementById('modal-ticket').classList.add('show');
+}
+function closeTicketModal(){document.getElementById('modal-ticket').classList.remove('show');}
+async function saveTicket(){
+  hideErr('ticket-modal-error');
+  const mode=document.getElementById('ticket-modal-mode').value;
+  const title=document.getElementById('tm-title').value.trim();
+  const description=document.getElementById('tm-desc').value.trim();
+  const priority=document.getElementById('tm-priority').value;
+  if(!title)return showErr('ticket-modal-error','Judul wajib diisi');
+  if(mode==='add'){
+    const res=await fetch('/api/tickets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description,priority})});
+    if(res.ok){closeTicketModal();loadTickets();}else{const e=await res.json();showErr('ticket-modal-error',e.error);}
+  }else{
+    const id=document.getElementById('ticket-modal-id').value;
+    const status=document.getElementById('tm-status').value;
+    const res=await fetch('/api/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description,priority,status})});
+    if(res.ok){closeTicketModal();loadTickets();}else{const e=await res.json();showErr('ticket-modal-error',e.error);}
+  }
+}
+async function changeTicketStatus(id,status){await fetch('/api/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});loadTickets();}
+async function deleteTicket(id){if(!confirm('Hapus tiket ini?'))return;await fetch('/api/tickets/'+id,{method:'DELETE'});loadTickets();}
+document.getElementById('modal-ticket').addEventListener('click',function(e){if(e.target===this)closeTicketModal();});
+
+// ASSETS
+let allAssets=[],assetFilter='all';
+async function loadAssets(){
+  allAssets=await fetch('/api/assets').then(r=>r.json());
+  const tgts=await fetch('/api/targets').then(r=>r.json());
+  const sel=document.getElementById('am-linked');
+  sel.innerHTML='<option value="">— Tidak dilink —</option>';
+  tgts.forEach(t=>{const o=document.createElement('option');o.value=t.name;o.textContent=t.name+' ('+t.type+')';sel.appendChild(o);});
+  renderAssets();
+}
+function filterAssets(f,btn){assetFilter=f;document.querySelectorAll('.afilter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderAssets();}
+function renderAssets(){
+  const list=document.getElementById('asset-list');
+  const filtered=assetFilter==='all'?allAssets:allAssets.filter(a=>a.status===assetFilter);
+  if(!filtered.length){list.innerHTML='<div class="empty-state">Tidak ada aset</div>';return;}
+  list.innerHTML=filtered.map(a=>
+    '<div class="asset-card '+a.status+'">'+
+    '<div class="asset-head">'+
+      '<div style="display:flex;align-items:center;gap:8px">'+
+        '<span class="asset-name">'+a.name+'</span>'+
+        '<span class="type-badge">'+a.type+'</span>'+
+      '</div>'+
+      '<div class="asset-badges">'+
+        '<span class="as-badge as-'+a.status+'">'+a.status.toUpperCase()+'</span>'+
+        (a.linkedTarget?'<span style="font-size:.65rem;background:#0c2a4a;color:#60a5fa;padding:2px 8px;border-radius:5px">🔗 '+a.linkedTarget+'</span>':'')+
+      '</div>'+
+    '</div>'+
+    '<div class="asset-meta-grid">'+
+      '<div class="asset-meta-item"><span class="asset-meta-label">Lokasi</span><span class="asset-meta-val">'+(a.location||'-')+'</span></div>'+
+      '<div class="asset-meta-item"><span class="asset-meta-label">Serial</span><span class="asset-meta-val">'+(a.serial||'-')+'</span></div>'+
+      '<div class="asset-meta-item"><span class="asset-meta-label">Pemilik</span><span class="asset-meta-val">'+(a.ownerName||'-')+'</span></div>'+
+      '<div class="asset-meta-item"><span class="asset-meta-label">NIK</span><span class="asset-meta-val">'+(a.ownerNIK||'-')+'</span></div>'+
+      '<div class="asset-meta-item"><span class="asset-meta-label">Ditambahkan</span><span class="asset-meta-val">'+formatTime(a.createdAt)+'</span></div>'+
+      '<div class="asset-meta-item"><span class="asset-meta-label">Oleh</span><span class="asset-meta-val">'+a.createdBy+'</span></div>'+
+    '</div>'+
+    '<div class="asset-actions">'+
+      '<button class="btn-sm btn-edit" onclick="openEditAsset(\''+a.id+'\')">✏ Edit</button>'+
+      '<button class="btn-sm" style="background:#1e293b;color:#94a3b8" onclick="showAssetHistory(\''+a.id+'\')">📋 Riwayat ('+a.history.length+')</button>'+
+      (myRole==='admin'?'<button class="btn-sm btn-danger" onclick="deleteAsset(\''+a.id+'\')">✕ Hapus</button>':'')+
+    '</div>'+
+    '</div>'
+  ).join('');
+}
+function openAssetModal(){
+  document.getElementById('asset-modal-title').textContent='🖥 Tambah Aset Baru';
+  document.getElementById('asset-modal-mode').value='add';
+  document.getElementById('asset-modal-id').value='';
+  ['am-name','am-location','am-serial'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('am-type').value='Router';
+  document.getElementById('am-status').value='active';
+  document.getElementById('am-linked').value='';
+  document.getElementById('am-owner').value='';
+  document.getElementById('am-nik').value='';
+  hideErr('asset-modal-error');
+  document.getElementById('modal-asset').classList.add('show');
+}
+function openEditAsset(id){
+  const a=allAssets.find(a=>a.id===id);if(!a)return;
+  document.getElementById('asset-modal-title').textContent='✏ Edit Aset';
+  document.getElementById('asset-modal-mode').value='edit';
+  document.getElementById('asset-modal-id').value=id;
+  document.getElementById('am-name').value=a.name;
+  document.getElementById('am-type').value=a.type;
+  document.getElementById('am-status').value=a.status;
+  document.getElementById('am-location').value=a.location;
+  document.getElementById('am-serial').value=a.serial;
+  document.getElementById('am-linked').value=a.linkedTarget??'';
+  document.getElementById('am-owner').value=a.ownerName??'';
+  document.getElementById('am-nik').value=a.ownerNIK??'';
+  hideErr('asset-modal-error');
+  document.getElementById('modal-asset').classList.add('show');
+}
+function closeAssetModal(){document.getElementById('modal-asset').classList.remove('show');}
+async function saveAsset(){
+  hideErr('asset-modal-error');
+  const mode=document.getElementById('asset-modal-mode').value;
+  const name=document.getElementById('am-name').value.trim();
+  if(!name)return showErr('asset-modal-error','Nama aset wajib diisi');
+const body={
+  name,
+  type: document.getElementById('am-type').value,
+  status: document.getElementById('am-status').value,
+  location: document.getElementById('am-location').value.trim(),
+  serial: document.getElementById('am-serial').value.trim(),
+  linkedTarget: document.getElementById('am-linked').value,
+  ownerName: document.getElementById('am-owner').value.trim(),
+  ownerNIK: document.getElementById('am-nik').value.trim(),
+};
+  if(mode==='add'){
+    const res=await fetch('/api/assets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(res.ok){closeAssetModal();loadAssets();}else{const e=await res.json();showErr('asset-modal-error',e.error);}
+  }else{
+    const id=document.getElementById('asset-modal-id').value;
+    const res=await fetch('/api/assets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(res.ok){closeAssetModal();loadAssets();}else{const e=await res.json();showErr('asset-modal-error',e.error);}
+  }
+}
+function showAssetHistory(id){
+  const a=allAssets.find(a=>a.id===id);if(!a)return;
+  document.getElementById('ah-title').textContent='📋 Riwayat: '+a.name;
+  document.getElementById('ah-body').innerHTML='<div class="timeline">'+[...a.history].reverse().map(h=>'<div class="tl-item"><div class="tl-dot"></div><div class="tl-content"><div class="tl-action">'+h.action+'</div><div class="tl-note">'+h.note+'</div><div class="tl-time">'+formatTime(h.time)+' · oleh '+h.by+'</div></div></div>').join('')+'</div>';
+  document.getElementById('modal-asset-history').classList.add('show');
+}
+async function deleteAsset(id){if(!confirm('Hapus aset ini?'))return;await fetch('/api/assets/'+id,{method:'DELETE'});loadAssets();}
+document.getElementById('modal-asset').addEventListener('click',function(e){if(e.target===this)closeAssetModal();});
+document.getElementById('modal-asset-history').addEventListener('click',function(e){if(e.target===this)this.classList.remove('show');});
+
+// USERS
+async function loadUsers(){
+  if(myRole!=='admin')return;
+  const users=await fetch('/api/users').then(r=>r.json());
+  const tbody=document.getElementById('user-tbody');tbody.innerHTML='';
+  users.forEach(u=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td style="color:#e2e8f0;font-family:JetBrains Mono,monospace">'+u.username+'</td><td><span class="role-badge '+(u.role==='admin'?'role-admin':'role-viewer')+'">'+u.role+'</span></td><td><button class="btn-sm btn-edit" onclick="openEditUser(\''+u.username+'\',\''+u.role+'\')">✏ Edit</button> <button class="btn-sm btn-danger" onclick="deleteUser(\''+u.username+'\')">✕ Hapus</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+function openAddUser(){
+  document.getElementById('modal-title').textContent='＋ Tambah User Baru';
+  document.getElementById('modal-mode').value='add';
+  document.getElementById('modal-target-user').value='';
+  document.getElementById('mu-username').value='';
+  document.getElementById('mu-username').disabled=false;
+  document.getElementById('mu-password').value='';
+  document.getElementById('mu-role').value='viewer';
+  hideErr('modal-error');
+  document.getElementById('modal-user').classList.add('show');
+}
+function openEditUser(username,role){
+  document.getElementById('modal-title').textContent='✏ Edit User: '+username;
+  document.getElementById('modal-mode').value='edit';
+  document.getElementById('modal-target-user').value=username;
+  document.getElementById('mu-username').value=username;
+  document.getElementById('mu-username').disabled=true;
+  document.getElementById('mu-password').value='';
+  document.getElementById('mu-role').value=role;
+  hideErr('modal-error');
+  document.getElementById('modal-user').classList.add('show');
+}
+function closeModal(){document.getElementById('modal-user').classList.remove('show');}
+async function saveUser(){
+  hideErr('modal-error');
+  const mode=document.getElementById('modal-mode').value;
+  const username=gv('mu-username'),password=gv('mu-password'),role=document.getElementById('mu-role').value;
+  if(mode==='add'){
+    if(!username||!password)return showErr('modal-error','Username & password wajib');
+    const res=await fetch('/api/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role})});
+    if(res.ok){closeModal();loadUsers();}else{const e=await res.json();showErr('modal-error',e.error);}
+  }else{
+    const target=document.getElementById('modal-target-user').value;
+    const body={role};if(password)body.password=password;
+    const res=await fetch('/api/users/'+encodeURIComponent(target),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(res.ok){closeModal();loadUsers();}else{const e=await res.json();showErr('modal-error',e.error);}
+  }
+}
+async function deleteUser(username){
+  if(!confirm('Hapus user "'+username+'"?'))return;
+  const res=await fetch('/api/users/'+encodeURIComponent(username),{method:'DELETE'});
+  if(res.ok)loadUsers();else{const e=await res.json();alert(e.error);}
+}
+document.getElementById('modal-user').addEventListener('click',function(e){if(e.target===this)closeModal();});
+// GANTI PASSWORD
+function openChangePassword(){
+  document.getElementById('cp-old').value='';
+  document.getElementById('cp-new').value='';
+  document.getElementById('cp-confirm').value='';
+  hideErr('cp-error');
+  document.getElementById('cp-success').style.display='none';
+  document.getElementById('modal-changepass').classList.add('show');
+}
+function closeChangePassword(){
+  document.getElementById('modal-changepass').classList.remove('show');
+}
+async function saveChangePassword(){
+  hideErr('cp-error');
+  document.getElementById('cp-success').style.display='none';
+  const oldPassword=document.getElementById('cp-old').value;
+  const newPassword=document.getElementById('cp-new').value;
+  const confirm=document.getElementById('cp-confirm').value;
+  if(!oldPassword||!newPassword||!confirm)
+    return showErr('cp-error','Semua field wajib diisi');
+  if(newPassword.length<6)
+    return showErr('cp-error','Password baru minimal 6 karakter');
+  if(newPassword!==confirm)
+    return showErr('cp-error','Konfirmasi password tidak cocok');
+  const res=await fetch('/api/me/password',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({oldPassword,newPassword})
+  });
+  if(res.ok){
+    document.getElementById('cp-success').style.display='block';
+    document.getElementById('cp-old').value='';
+    document.getElementById('cp-new').value='';
+    document.getElementById('cp-confirm').value='';
+    setTimeout(closeChangePassword, 1500);
+  } else {
+    const e=await res.json();
+    showErr('cp-error',e.error);
+  }
+}
+document.getElementById('modal-changepass').addEventListener('click',function(e){if(e.target===this)closeChangePassword();});
+
+
+// ═══════════════════════════════════════════
+// NETWORK MAP
+// ═══════════════════════════════════════════
+let netNodes = [], netEdges = [], netMapMode = 'move';
+let dragging = null, dragOffX = 0, dragOffY = 0;
+let connectFrom = null;
+let netMapStatus = {}; // name -> ok
+let netMapInited = false;
+let canvas, ctx;
+
+const NODE_ICONS = {
+  router:'🌐', switch:'🔀', server:'🖥', pc:'💻',
+  ap:'📡', firewall:'🔥', cloud:'☁️', monitor:'📊'
+};
+const NODE_W = 90, NODE_H = 54;
+
+async function initNetMap() {
+  if (!canvas) {
+    canvas = document.getElementById('netmap-canvas');
+    ctx = canvas.getContext('2d');
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('dblclick', onDblClick);
+
+    // Load targets for dropdown
+    const tgts = await fetch('/api/targets').then(r=>r.json());
+    const sel = document.getElementById('nm-linked');
+    sel.innerHTML = '<option value="">— Tidak dilink —</option>';
+    tgts.forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.name; o.textContent = t.name + ' (' + t.type + ')';
+      sel.appendChild(o);
+    });
+  }
+
+  if (myRole === 'admin') {
+    document.getElementById('netmap-admin-tools').style.display = 'flex';
+  }
+
+  await refreshNetMap();
+  setMapMode('move');
+  drawMap();
+  netMapInited = true;
+}
+
+function resizeCanvas() {
+  const container = canvas.parentElement;
+  canvas.width = container.clientWidth || 1100;
+  canvas.height = 580;
+  drawMap();
+}
+
+async function refreshNetMap() {
+  const data = await fetch('/api/netmap').then(r=>r.json());
+  netNodes = data.nodes || [];
+  netEdges = data.edges || [];
+}
+
+function setMapMode(mode) {
+  netMapMode = mode;
+  connectFrom = null;
+  const indicator = document.getElementById('netmap-mode-indicator');
+  const labels = { add:'＋ Mode: Tambah Node (klik canvas)', connect:'🔗 Mode: Hubungkan (klik node pertama)', move:'✥ Mode: Pindah' };
+  indicator.textContent = labels[mode] || '';
+  indicator.style.display = mode !== 'move' ? 'block' : 'none';
+
+  ['add','connect','move'].forEach(m => {
+    const btn = document.getElementById('mode-'+m);
+    if (!btn) return;
+    btn.style.background = m === mode ? '#1d4ed8' : '';
+    btn.style.color = m === mode ? '#fff' : '';
+  });
+  canvas.style.cursor = mode === 'add' ? 'crosshair' : mode === 'connect' ? 'cell' : 'default';
+  drawMap();
+}
+
+// Update status dari WebSocket data
+function updateNetMapStatus(results) {
+  results.forEach(r => { netMapStatus[r.name] = r.ok; });
+  if (netMapInited && document.getElementById('page-netmap').classList.contains('active')) {
+    drawMap();
+  }
+}
+
+function getNodeAt(x, y) {
+  for (let i = netNodes.length - 1; i >= 0; i--) {
+    const n = netNodes[i];
+    if (x >= n.x && x <= n.x + NODE_W && y >= n.y && y <= n.y + NODE_H) return n;
+  }
+  return null;
+}
+
+function getEdgeAt(x, y) {
+  for (const e of netEdges) {
+    const from = netNodes.find(n => n.id === e.from);
+    const to = netNodes.find(n => n.id === e.to);
+    if (!from || !to) continue;
+    const fx = from.x + NODE_W/2, fy = from.y + NODE_H/2;
+    const tx = to.x + NODE_W/2, ty = to.y + NODE_H/2;
+    const dx = tx - fx, dy = ty - fy;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    if (len === 0) continue;
+    const t = Math.max(0, Math.min(1, ((x-fx)*dx + (y-fy)*dy) / (len*len)));
+    const px = fx + t*dx - x, py = fy + t*dy - y;
+    if (Math.sqrt(px*px + py*py) < 8) return e;
+  }
+  return null;
+}
+
+function onMouseDown(e) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  const node = getNodeAt(mx, my);
+
+  if (netMapMode === 'connect') {
+    if (node) {
+      if (!connectFrom) {
+        connectFrom = node;
+        drawMap();
+        document.getElementById('netmap-mode-indicator').textContent = '🔗 Klik node kedua untuk dihubungkan...';
+      } else if (connectFrom.id !== node.id) {
+        addEdge(connectFrom.id, node.id);
+        connectFrom = null;
+        setMapMode('move');
+      }
+    }
+    return;
+  }
+
+  if (netMapMode === 'move' && node) {
+    dragging = node;
+    dragOffX = mx - node.x;
+    dragOffY = my - node.y;
+    canvas.style.cursor = 'grabbing';
+  }
+}
+
+function onMouseMove(e) {
+  if (!dragging) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  dragging.x = Math.max(0, Math.min(canvas.width - NODE_W, mx - dragOffX));
+  dragging.y = Math.max(0, Math.min(canvas.height - NODE_H, my - dragOffY));
+  drawMap();
+}
+
+async function onMouseUp(e) {
+  if (dragging) {
+    // Save new position
+    await fetch('/api/netmap/node/' + dragging.id, {
+      method: 'PATCH', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ x: Math.round(dragging.x), y: Math.round(dragging.y) })
+    });
+    dragging = null;
+    canvas.style.cursor = 'default';
+  }
+}
+
+function onDblClick(e) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  const node = getNodeAt(mx, my);
+  const edge = !node ? getEdgeAt(mx, my) : null;
+
+  if (node) {
+    if (myRole === 'admin') {
+      document.getElementById('node-opt-id').value = node.id;
+      document.getElementById('node-opt-title').textContent = NODE_ICONS[node.type] + ' ' + node.label;
+      document.getElementById('modal-node-options').classList.add('show');
+    }
+  } else if (edge) {
+    if (myRole === 'admin' && confirm('Hapus koneksi ini?')) {
+      deleteEdge(edge.id);
+    }
+  } else if (netMapMode === 'add' && myRole === 'admin') {
+    document.getElementById('node-modal-title').textContent = '＋ Tambah Node';
+    document.getElementById('node-modal-id').value = '';
+    document.getElementById('node-modal-x').value = Math.round(mx - NODE_W/2);
+    document.getElementById('node-modal-y').value = Math.round(my - NODE_H/2);
+    document.getElementById('nm-label').value = '';
+    document.getElementById('nm-type').value = 'router';
+    document.getElementById('nm-linked').value = '';
+    document.getElementById('node-modal-error').style.display = 'none';
+    document.getElementById('modal-node').classList.add('show');
+  }
+}
+
+function drawMap() {
+  if (!ctx) return;
+  const dpr = window.devicePixelRatio || 1;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Background grid
+  ctx.strokeStyle = '#0f1929';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 40) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 40) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  }
+
+  // Draw edges
+  netEdges.forEach(e => {
+    const from = netNodes.find(n => n.id === e.from);
+    const to = netNodes.find(n => n.id === e.to);
+    if (!from || !to) return;
+    const fx = from.x + NODE_W/2, fy = from.y + NODE_H/2;
+    const tx = to.x + NODE_W/2, ty = to.y + NODE_H/2;
+    ctx.beginPath();
+    ctx.moveTo(fx, fy); ctx.lineTo(tx, ty);
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.stroke();
+    if (e.label) {
+      ctx.fillStyle = '#475569'; ctx.font = '11px Inter,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(e.label, (fx+tx)/2, (fy+ty)/2 - 6);
+    }
+  });
+
+  // Highlight connectFrom
+  if (connectFrom) {
+    ctx.beginPath();
+    ctx.arc(connectFrom.x + NODE_W/2, connectFrom.y + NODE_H/2, NODE_W/2 + 4, 0, Math.PI*2);
+    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // Draw nodes
+  netNodes.forEach(n => {
+    const linked = n.linkedTarget;
+    const status = linked ? netMapStatus[linked] : undefined;
+    const isUp = status === true;
+    const isDown = status === false;
+    const hasMonitor = status !== undefined;
+
+    // Node background
+    const borderColor = isUp ? '#22c55e' : isDown ? '#ef4444' : '#334155';
+    const bgColor = isUp ? '#052e16' : isDown ? '#450a0a' : '#1e293b';
+
+    // Shadow
+    ctx.shadowColor = isUp ? '#22c55e44' : isDown ? '#ef444444' : 'transparent';
+    ctx.shadowBlur = hasMonitor ? 12 : 0;
+
+    // Box
+    ctx.fillStyle = bgColor;
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 2;
+    roundRect(ctx, n.x, n.y, NODE_W, NODE_H, 10);
+    ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Icon
+    ctx.font = '20px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(NODE_ICONS[n.type] || '📦', n.x + NODE_W/2, n.y + 18);
+
+    // Label
+    ctx.font = 'bold 11px Inter,sans-serif';
+    ctx.fillStyle = '#f1f5f9';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    const label = n.label.length > 12 ? n.label.substring(0,11)+'…' : n.label;
+    ctx.fillText(label, n.x + NODE_W/2, n.y + NODE_H - 8);
+
+    // Status dot
+    if (hasMonitor) {
+      ctx.beginPath();
+      ctx.arc(n.x + NODE_W - 8, n.y + 8, 5, 0, Math.PI*2);
+      ctx.fillStyle = isUp ? '#22c55e' : '#ef4444';
+      ctx.fill();
+    }
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y, x+w, y+r, r);
+  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h); ctx.arcTo(x, y+h, x, y+h-r, r);
+  ctx.lineTo(x, y+r); ctx.arcTo(x, y, x+r, y, r);
+  ctx.closePath();
+}
+
+async function saveNode() {
+  const label = document.getElementById('nm-label').value.trim();
+  const type = document.getElementById('nm-type').value;
+  const linkedTarget = document.getElementById('nm-linked').value;
+  const id = document.getElementById('node-modal-id').value;
+  const errEl = document.getElementById('node-modal-error');
+  errEl.style.display = 'none';
+  if (!label) { errEl.textContent='⚠ Label wajib diisi'; errEl.style.display='block'; return; }
+
+  if (id) {
+    // Edit existing
+    await fetch('/api/netmap/node/'+id, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({label, type, linkedTarget})
+    });
+  } else {
+    // Add new
+    const x = parseInt(document.getElementById('node-modal-x').value);
+    const y = parseInt(document.getElementById('node-modal-y').value);
+    await fetch('/api/netmap/node', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({label, type, linkedTarget, x: Math.max(0,x), y: Math.max(0,y)})
+    });
+  }
+  closeNodeModal();
+  await refreshNetMap();
+  drawMap();
+}
+
+function closeNodeModal() { document.getElementById('modal-node').classList.remove('show'); }
+
+function closeNodeOptions() { document.getElementById('modal-node-options').classList.remove('show'); }
+
+function editNode() {
+  const id = document.getElementById('node-opt-id').value;
+  const node = netNodes.find(n => n.id === id);
+  if (!node) return;
+  closeNodeOptions();
+  document.getElementById('node-modal-title').textContent = '✏ Edit Node';
+  document.getElementById('node-modal-id').value = node.id;
+  document.getElementById('nm-label').value = node.label;
+  document.getElementById('nm-type').value = node.type;
+  document.getElementById('nm-linked').value = node.linkedTarget ?? '';
+  document.getElementById('node-modal-error').style.display = 'none';
+  document.getElementById('modal-node').classList.add('show');
+}
+
+async function deleteNode() {
+  const id = document.getElementById('node-opt-id').value;
+  if (!confirm('Hapus node ini?')) return;
+  closeNodeOptions();
+  await fetch('/api/netmap/node/'+id, {method:'DELETE'});
+  await refreshNetMap();
+  drawMap();
+}
+
+function startConnectFrom() {
+  closeNodeOptions();
+  setMapMode('connect');
+  const id = document.getElementById('node-opt-id').value;
+  connectFrom = netNodes.find(n => n.id === id) || null;
+  drawMap();
+}
+
+async function addEdge(fromId, toId) {
+  await fetch('/api/netmap/edge', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({from: fromId, to: toId, label: ''})
+  });
+  await refreshNetMap();
+  drawMap();
+}
+
+async function deleteEdge(id) {
+  await fetch('/api/netmap/edge/'+id, {method:'DELETE'});
+  await refreshNetMap();
+  drawMap();
+}
+
+document.getElementById('modal-node').addEventListener('click', function(e){if(e.target===this)closeNodeModal();});
+document.getElementById('modal-node-options').addEventListener('click', function(e){if(e.target===this)closeNodeOptions();});
+
+
+// SETTINGS - TELEGRAM
+async function loadTelegramSettings(){
+  if(myRole!=='admin')return;
+  const cfg=await fetch('/api/settings/telegram').then(r=>r.json());
+  document.getElementById('tg-token').value=cfg.token??'';
+  document.getElementById('tg-chatid').value=cfg.chatId??'';
+  document.getElementById('tg-enabled').checked=cfg.enabled??false;
+  updateToggleUI(cfg.enabled??false);
+}
+function updateToggleUI(enabled){
+  const knob=document.getElementById('tg-knob');
+  const bg=document.getElementById('tg-toggle-ui');
+  if(enabled){knob.style.left='22px';knob.style.background='#4ade80';bg.style.background='#052e16';}
+  else{knob.style.left='2px';knob.style.background='#64748b';bg.style.background='#1e293b';}
+}
+async function saveTelegramSettings(){
+  const token=document.getElementById('tg-token').value.trim();
+  const chatId=document.getElementById('tg-chatid').value.trim();
+  const enabled=document.getElementById('tg-enabled').checked;
+  const statusEl=document.getElementById('tg-status');
+  const res=await fetch('/api/settings/telegram',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,chatId,enabled})});
+  if(res.ok){
+    statusEl.style.display='block';statusEl.style.color='#4ade80';
+    statusEl.textContent='✅ Pengaturan tersimpan!';
+    setTimeout(()=>statusEl.style.display='none',2000);
+  }
+}
+async function testTelegram(){
+  const statusEl=document.getElementById('tg-status');
+  statusEl.style.display='block';statusEl.style.color='#60a5fa';
+  statusEl.textContent='📨 Mengirim pesan test...';
+  await saveTelegramSettings();
+  const res=await fetch('/api/settings/telegram/test',{method:'POST'});
+  const data=await res.json();
+  if(res.ok){statusEl.style.color='#4ade80';statusEl.textContent='✅ Berhasil! Cek Telegram kamu.';}
+  else{statusEl.style.color='#f87171';statusEl.textContent='❌ Gagal: '+(data.error??'Unknown error');}
+}
+
+init();
+</script>
+</body>
+</html>

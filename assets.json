@@ -1,0 +1,24 @@
+[
+  {
+    "id": "mmvh4qi7z02",
+    "name": "Kompuer Kasir",
+    "type": "PC",
+    "location": "sip2",
+    "serial": "21531",
+    "status": "active",
+    "linkedTarget": "",
+    "ownerName": "EMA",
+    "ownerNIK": "21212",
+    "createdBy": "admin",
+    "createdAt": "2026-03-18T03:20:47.407Z",
+    "updatedAt": "2026-03-18T03:20:47.407Z",
+    "history": [
+      {
+        "time": "2026-03-18T03:20:47.407Z",
+        "action": "Dibuat",
+        "by": "admin",
+        "note": "Aset ditambahkan"
+      }
+    ]
+  }
+]

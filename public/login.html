@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Login — Monitor Ku</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0f172a;color:#e2e8f0;font-family:'Segoe UI',sans-serif;
+         display:flex;align-items:center;justify-content:center;min-height:100vh}
+    .box{background:#1e293b;border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 20px 60px #0008}
+    .logo{font-size:1.8rem;font-weight:700;margin-bottom:6px;color:#f8fafc}
+    .logo span{font-size:1rem;background:#1d4ed8;padding:2px 10px;border-radius:6px;margin-left:8px;font-weight:500}
+    .sub{color:#64748b;font-size:.85rem;margin-bottom:28px}
+    label{display:block;font-size:.78rem;color:#94a3b8;margin-bottom:6px}
+    input{width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;
+          padding:10px 14px;border-radius:8px;font-size:.9rem;outline:none;margin-bottom:16px}
+    input:focus{border-color:#3b82f6}
+    .btn{width:100%;background:#3b82f6;color:#fff;border:none;padding:11px;
+         border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;margin-top:4px}
+    .btn:hover{background:#2563eb}
+    .error{color:#f87171;font-size:.82rem;margin-top:10px;display:none;text-align:center}
+  </style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">🖥️ Monitor Ku <span>v1.0</span></div>
+  <div class="sub">Masuk untuk mengakses dashboard</div>
+
+  <label>Username</label>
+  <input id="username" type="text" placeholder="admin" autocomplete="username"/>
+
+  <label>Password</label>
+  <input id="password" type="password" placeholder="••••••••" autocomplete="current-password"
+         onkeydown="if(event.key==='Enter') login()"/>
+
+  <button class="btn" onclick="login()">Masuk →</button>
+  <div class="error" id="error"></div>
+</div>
+
+<script>
+async function login() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const errEl = document.getElementById('error');
+  errEl.style.display = 'none';
+
+  if (!username || !password) {
+    errEl.textContent = '⚠️ Username dan password wajib diisi';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const res = await fetch('/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (res.ok) {
+    window.location.href = '/';
+  } else {
+    const data = await res.json();
+    errEl.textContent = '⚠️ ' + data.error;
+    errEl.style.display = 'block';
+  }
+}
+</script>
+</body>
+</html>
