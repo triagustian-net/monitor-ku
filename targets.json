@@ -1,0 +1,48 @@
+[
+  {
+    "name": "Google",
+    "type": "http",
+    "url": "https://google.com"
+  },
+  {
+    "name": "Cloudflare",
+    "type": "tcp",
+    "host": "1.1.1.1",
+    "port": 80
+  },
+  {
+    "name": "LJN",
+    "type": "ping",
+    "host": "157.10.97.26"
+  },
+  {
+    "name": "TELEMEDIA",
+    "type": "ping",
+    "host": "160.25.222.37"
+  },
+  {
+    "name": "TENCET",
+    "type": "ping",
+    "host": "43.173.2.253"
+  },
+  {
+    "name": "TELEMEDIA",
+    "type": "ping",
+    "host": "160.25.222.37"
+  },
+  {
+    "name": "Mikrotik LJN",
+    "type": "ping",
+    "host": "172.16.64.1"
+  },
+  {
+    "name": "NVR CCTV SIP1",
+    "type": "ping",
+    "host": "172.16.66.242"
+  },
+  {
+    "name": "ROUTER WB LOKAL",
+    "type": "ping",
+    "host": "172.16.60.4"
+  }
+]
